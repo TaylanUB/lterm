@@ -25,9 +25,9 @@
 ;; 1. Be a real terminal emulator, like `term-mode'.
 
 ;; 2. In line-mode, the last line of the window is reserved as the input line and is not part of the
-;; terminal-emulator screen.
+;; virtual terminal screen.
 
-;; 3. In character-mode, behave like `term-mode' in character-mode.
+;; 3. In character-mode, behave like `term-char-mode'.
 
 ;; Lies:
 
@@ -43,6 +43,7 @@
 
 (require 'term)
 (require 'lui)
+(require 'xterm-color)
 
 (define-derived-mode lterm-mode lui-mode "Linewise-Term"
   "Line-wise interaction with an inferior process, understanding some simple terminal escapes
@@ -50,6 +51,7 @@
   :group 'lterm
   (setq lui-input-function 'lterm-user-input-handler)
   (lui-set-prompt lterm-default-prompt)
+  (setq lui-fill-type nil)
   (goto-char (point-max)))
 
 (defvar lterm-default-prompt "> "
@@ -75,11 +77,7 @@
   (when (equal (substring line -1) "\r")
     (setq line (substring line 0 -1)))
   (with-current-buffer (process-buffer process)
-    (lui-insert (lterm-parse line))))
-
-(defun lterm-parse (string)
-  "Return an attributed string according to terminal escapes occurring in it."
-  string)
+    (lui-insert (xterm-color-filter (replace-regexp-in-string "\r\n" "\n" line)))))
 
 (defun lterm (program)
   "Start a line-wise terminal-emulator in a new buffer.
