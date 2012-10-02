@@ -51,7 +51,7 @@
   :group 'lterm
   (setq lui-input-function 'lterm-user-input-handler)
   (lui-set-prompt lterm-default-prompt)
-  (setq lui-fill-type nil)
+  (setq (make-local-variable 'lui-fill-type) nil)
   (goto-char (point-max)))
 
 (defvar lterm-default-prompt "> "
