@@ -99,7 +99,7 @@ to be filtered through a processor to allow macros etc.."
   (set (make-local-variable 'lui-fill-type) nil)
   (goto-char (point-max)))
 
-(defun lterm-start-process (program name &rest program-args)
+(defun lterm-start-process (name program &rest program-args)
   "This should be called just before `lterm-mode'.
 Similarly, libraries definind derived modes of lterm should use
 this in their \"main entry\" function, a la `lterm', before
