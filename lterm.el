@@ -93,7 +93,6 @@ in order, before it's inserted into the buffer."
 some simple terminal escapes (e.g. colors) and allowing the input
 to be filtered through a processor to allow macros etc.."
   :group 'lterm
-  (set-process-filter lterm-process 'lterm-process-output-handler)
   (setq lui-input-function 'lterm-user-input-handler)
   (lui-set-prompt lterm-default-prompt)
   (set (make-local-variable 'lui-fill-type) nil)
@@ -108,7 +107,8 @@ calling their mode function."
         (inhibit-eol-conversion t)
         (coding-system-for-read 'binary))
     (setq lterm-process
-          (start-process name (current-buffer) program program-args))))
+          (apply #'start-process name (current-buffer) program program-args)))
+  (set-process-filter lterm-process 'lterm-process-output-handler))
 
 (defun lterm (program)
   "Start a line-wise terminal-emulator in a new buffer.
