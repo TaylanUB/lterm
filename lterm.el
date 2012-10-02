@@ -46,71 +46,12 @@
 ;; https://github.com/atomontage/xterm-color
 (require 'xterm-color)
 
-(define-derived-mode lterm-mode lui-mode "Linewise-Term"
-  "Line-wise interaction with an inferior process, understanding
-some simple terminal escapes (e.g. colors) and allowing the input
-to be filtered through a processor to allow macros etc.."
-  :group 'lterm
-  (set-process-filter lterm-process 'lterm-process-output-handler)
-  (setq lui-input-function 'lterm-user-input-handler)
-  (lui-set-prompt lterm-default-prompt)
-  (set (make-local-variable 'lui-fill-type) nil)
-  (goto-char (point-max)))
 
-(defun lterm-start-process (program &optional name buffer)
-  "This should be called just before `lterm-mode'.
-Libraries definind derived modes of lterm can use this in their
-\"main entry\" function, a la `lterm'."
-  (let ((name (or name "lterm"))
-        (buffer (or buffer (current-buffer)))
-        (process-environment (cons "TERM=xterm-256color" process-environment))
-        (inhibit-eol-conversion t)
-        (coding-system-for-read 'binary))
-    (with-current-buffer buffer
-     (setq lterm-process (start-process name buffer program)))))
+;;; Customization
 
-(defun lterm (program)
-  "Start a line-wise terminal-emulator in a new buffer.
-The buffer is in `lterm-mode'."
-  (interactive (list (read-from-minibuffer "Run program: "
-                                           (or explicit-shell-file-name
-                                               (getenv "ESHELL")
-                                               (getenv "SHELL")
-                                               "/bin/sh"))))
-  (switch-to-buffer (generate-new-buffer "*lterm*"))
-  (lterm-start-process program)
-  (lterm-mode))
-
-(defsubst lterm--filter (filters string)
-  (dolist (filter filters)
-    (setq string (funcall filter string)))
-  string)
-
-(defun lterm-user-input-handler (line)
-  "Function to handle the user-input in lterm buffers."
-  (when lterm-echo-before-filters
-    (lui-insert line))
-  (setq line (lterm--filter lterm-input-filters line))
-  (when lterm-echo-after-filters
-    (lui-insert line))
-  (process-send-string lterm-process (concat line "\n")))
-
-(defun lterm-process-output-handler (process line)
-  "Function to handle the output of lterm processes."
-  (when lterm-convert-crlf
-    (setq line (replace-regexp-in-string "\r\n" "\n" line)))
-  (when (equal (substring line -1) "\n")
-    (setq line (substring line 0 -1)))
-  (setq line (xterm-color-filter line))
-  (setq line (lterm--filter lterm-output-filters line))
-  (dolist (filter lterm-output-filters)
-    (setq line (funcall filter line)))
-  (with-current-buffer (process-buffer process)
-    (lui-insert line)))
-
-(defvar lterm-process nil
-  "The process of the current lterm buffer.")
-(make-variable-buffer-local 'lterm-process)
+(defcustom lterm-default-program nil
+  "The default program lterm should run."
+  :group 'lterm :type 'string)
 
 (defcustom lterm-default-prompt "> "
   "The default prompt for lterm."
@@ -139,6 +80,77 @@ order, before being sent to the process."
   "List of unary functions through which the process's output is piped,
 in order, before it's inserted into the buffer."
   :group 'lterm :type 'hook)
+
+
+;;; Main
+
+(defvar lterm-process nil
+  "The process of the current lterm buffer.")
+(make-variable-buffer-local 'lterm-process)
+
+(define-derived-mode lterm-mode lui-mode "Linewise-Term"
+  "Line-wise interaction with an inferior process, understanding
+some simple terminal escapes (e.g. colors) and allowing the input
+to be filtered through a processor to allow macros etc.."
+  :group 'lterm
+  (set-process-filter lterm-process 'lterm-process-output-handler)
+  (setq lui-input-function 'lterm-user-input-handler)
+  (lui-set-prompt lterm-default-prompt)
+  (set (make-local-variable 'lui-fill-type) nil)
+  (goto-char (point-max)))
+
+(defun lterm-start-process (program name &rest program-args)
+  "This should be called just before `lterm-mode'.
+Similarly, libraries definind derived modes of lterm should use
+this in their \"main entry\" function, a la `lterm', before
+calling their mode function."
+  (let ((process-environment (cons "TERM=xterm-256color" process-environment))
+        (inhibit-eol-conversion t)
+        (coding-system-for-read 'binary))
+    (setq lterm-process
+          (start-process name (current-buffer) program program-args))))
+
+(defun lterm (program)
+  "Start a line-wise terminal-emulator in a new buffer.
+The buffer is in `lterm-mode'."
+  (interactive (list (read-from-minibuffer "Run program: "
+                                           (or lterm-default-program
+                                               (getenv "ESHELL")
+                                               (getenv "SHELL")
+                                               "/bin/sh"))))
+  (switch-to-buffer (generate-new-buffer "*lterm*"))
+  (lterm-start-process "lterm" program)
+  (lterm-mode))
+
+
+;;; Input/output handling
+
+(defsubst lterm--filter (filters string)
+  (dolist (filter filters)
+    (setq string (funcall filter string)))
+  string)
+
+(defun lterm-user-input-handler (line)
+  "Function to handle the user-input in lterm buffers."
+  (when lterm-echo-before-filters
+    (lui-insert line))
+  (setq line (lterm--filter lterm-input-filters line))
+  (when lterm-echo-after-filters
+    (lui-insert line))
+  (process-send-string lterm-process (concat line "\n")))
+
+(defun lterm-process-output-handler (process line)
+  "Function to handle the output of lterm processes."
+  (when lterm-convert-crlf
+    (setq line (replace-regexp-in-string "\r\n" "\n" line)))
+  (when (equal (substring line -1) "\n")
+    (setq line (substring line 0 -1)))
+  (setq line (xterm-color-filter line))
+  (setq line (lterm--filter lterm-output-filters line))
+  (dolist (filter lterm-output-filters)
+    (setq line (funcall filter line)))
+  (with-current-buffer (process-buffer process)
+    (lui-insert line)))
 
 (provide 'lterm)
 ;;; lterm.el ends here
