@@ -52,7 +52,7 @@ to be filtered through a processor to allow macros etc.."
   :group 'lterm
   (setq lui-input-function 'lterm-user-input-handler)
   (lui-set-prompt lterm-default-prompt)
-  (setq (make-local-variable 'lui-fill-type) nil)
+  (set (make-local-variable 'lui-fill-type) nil)
   (goto-char (point-max)))
 
 (defvar lterm-default-prompt "> "
@@ -110,7 +110,7 @@ The buffer is in `lterm-mode'."
                                                (getenv "SHELL")
                                                "/bin/sh"))))
   (switch-to-buffer (generate-new-buffer "*lterm*"))
-  (let ((process-environment (cons "TERM=ansi" process-environment))
+  (let ((process-environment (cons "TERM=xterm-256color" process-environment))
         (inhibit-eol-conversion t)
         (coding-system-for-read 'binary))
     (setq lterm-process (start-process "lterm" (current-buffer) program)))
