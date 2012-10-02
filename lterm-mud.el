@@ -29,18 +29,18 @@
 
 ;;; Customization
 
-(defcustom lterm-mud-prompt-regex nil
+(defvar lterm-mud-prompt-regex nil
   "The regular expression to match telnet output lines that
-indicate the prompt."
-  :group 'lterm-mud :type 'regexp)
+indicate the prompt.")
+(make-variable-buffer-local 'lterm-mud-prompt-regex)
 
-(defcustom lterm-mud-prompt-replacement nil
+(defvar lterm-mud-prompt-replacement nil
   "The replacement-string to be used, after matching a
 prompt-line, to create the prompt.  Alternatively, this can be a
 function that should return the prompt as a string. It will be
 called so that `match-string' can be used.  The prompt is a lui
-prompt."
-  :group 'lterm-mud :type 'string)
+prompt.")
+(make-variable-buffer-local 'lterm-mud-prompt-replacement)
 
 
 ;;; Main
