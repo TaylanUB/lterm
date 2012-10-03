@@ -46,8 +46,13 @@
   (require 'cl))
 
 (require 'lui)
-;; https://github.com/atomontage/xterm-color
+
 (require 'xterm-color)
+;; https://github.com/atomontage/xterm-color
+;; Summary: Calls to `xterm-color-filter' communicate with a state machine,
+;; whose state is buffer-local, and allows us to interpret a bytestream with
+;; terminal escape sequences chunk-by-chunk.  That is, it will e.g. remember
+;; color codes that were started and not changed/reset, and continue with them.
 
 
 ;;; Customization
@@ -158,6 +163,16 @@ called so that `match-string' can be used.  The prompt is a lui
 prompt.")
 (make-variable-buffer-local 'lterm-prompt-replacement)
 
+;; Call after (string-match lterm-prompt-regex <string>) .
+(defsubst lterm-set-prompt (string)
+  (lui-set-prompt
+   (cond
+    ((stringp lterm-prompt-replacement)
+     (replace-match lterm-prompt-replacement nil nil string))
+    ((functionp lterm-prompt-replacement)
+     (funcall lterm-prompt-replacement))
+    (t (error "invalid value for `lterm-prompt-replacement'")))))
+
 (defvar *lterm-output-remainder* "")
 (make-variable-buffer-local '*lterm-output-remainder*)
 (defun lterm-process-output-handler (process string)
@@ -172,17 +187,20 @@ prompt.")
           (setq *lterm-output-remainder* (cadr second-last))
           (setcdr second-last nil))
         (dolist (line lines)
-          (lterm-process-output-line-handler (xterm-color-filter line)))))
-    (let ((string (xterm-color-filter *lterm-output-remainder*)))
-      (when (string-match lterm-prompt-regex string)
+          (let ((filtered (xterm-color-filter line)))
+            (if (string-match lterm-prompt-regex filtered)
+                (lterm-set-prompt filtered)
+              (lterm-process-output-line-handler filtered))))))
+    (let ((remainder
+           (with-temp-buffer
+             (xterm-color-filter *lterm-output-remainder*)
+             (buffer-string))))
+      (when (string-match lterm-prompt-regex remainder)
+        (xterm-color-filter *lterm-output-remainder*)
         (setq *lterm-output-remainder* "")
-        (lui-set-prompt
-         (cond
-          ((stringp lterm-prompt-replacement)
-           (replace-match lterm-prompt-replacement nil nil string))
-          ((functionp lterm-prompt-replacement)
-           (funcall lterm-prompt-replacement))
-          (t (error "invalid value for `lterm-prompt-replacement'"))))))))
+        (lterm-set-prompt remainder)))))
+
+(defun lterm-set-prompt-from-match-data (string))
 
 (defun lterm-process-output-line-handler (line)
   "Function to handle a single line of process output."
