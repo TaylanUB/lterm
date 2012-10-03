@@ -200,8 +200,6 @@ prompt.")
         (setq *lterm-output-remainder* "")
         (lterm-set-prompt remainder)))))
 
-(defun lterm-set-prompt-from-match-data (string))
-
 (defun lterm-process-output-line-handler (line)
   "Function to handle a single line of process output."
   (let ((output (lterm--filter lterm-output-filters line)))
