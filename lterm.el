@@ -42,6 +42,9 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'cl))
+
 (require 'lui)
 ;; https://github.com/atomontage/xterm-color
 (require 'xterm-color)
@@ -73,12 +76,14 @@ process."
 
 (defcustom lterm-input-filters nil
   "List of unary functions through which user-input is piped, in
-order, before being sent to the process."
+order, before being sent to the process.
+If any of these return nil, lterm aborts the input."
   :group 'lterm :type 'hook)
 
 (defcustom lterm-output-filters nil
   "List of unary functions through which the process's output is piped,
-in order, before it's inserted into the buffer."
+in order, before it's inserted into the buffer.
+If any of these return nil, lterm aborts inserting the output."
   :group 'lterm :type 'hook)
 
 
@@ -93,6 +98,8 @@ in order, before it's inserted into the buffer."
 some simple terminal escapes (e.g. colors) and allowing the input
 to be filtered through a processor to allow macros etc.."
   :group 'lterm
+  (setq lterm-process (get-buffer-process (current-buffer)))
+  (set-process-filter lterm-process 'lterm-process-output-handler)
   (setq lui-input-function 'lterm-user-input-handler)
   (lui-set-prompt lterm-default-prompt)
   (set (make-local-variable 'lui-fill-type) nil)
@@ -106,9 +113,7 @@ calling their mode function."
   (let ((process-environment (cons "TERM=xterm-256color" process-environment))
         (inhibit-eol-conversion t)
         (coding-system-for-read 'binary))
-    (setq lterm-process
-          (apply #'start-process name (current-buffer) program program-args)))
-  (set-process-filter lterm-process 'lterm-process-output-handler))
+    (apply 'start-process name (current-buffer) program program-args)))
 
 (defun lterm (program)
   "Start a line-wise terminal-emulator in a new buffer.
@@ -125,32 +130,65 @@ The buffer is in `lterm-mode'."
 
 ;;; Input/output handling
 
-(defsubst lterm--filter (filters string)
-  (dolist (filter filters)
-    (setq string (funcall filter string)))
-  string)
+(defmacro lterm--filter (filters string)
+  (let ((filter (make-symbol "filter")))
+    `(dolist (,filter ,filters ,string)
+       (unless (setq ,string (funcall ,filter ,string))
+         (return nil)))))
 
-(defun lterm-user-input-handler (line)
+(defun lterm-user-input-handler (string)
   "Function to handle the user-input in lterm buffers."
   (when lterm-echo-before-filters
-    (lui-insert line))
-  (setq line (lterm--filter lterm-input-filters line))
-  (when lterm-echo-after-filters
-    (lui-insert line))
-  (process-send-string lterm-process (concat line "\n")))
+    (lui-insert string))
+  (setq string (lterm--filter lterm-input-filters string))
+  (when string
+    (when lterm-echo-after-filters
+      (lui-insert string))
+    (process-send-string lterm-process (concat string "\n"))))
 
-(defun lterm-process-output-handler (process line)
+(defvar lterm-prompt-regex "^\\$ "
+  "Regular expression used to detect a prompt.")
+(make-variable-buffer-local 'lterm-prompt-regex)
+
+(defvar lterm-prompt-replacement "\\&"
+  "The replacement-string to be used, after matching a
+prompt-line, to create the prompt.  Alternatively, this can be a
+function that should return the prompt as a string. It will be
+called so that `match-string' can be used.  The prompt is a lui
+prompt.")
+(make-variable-buffer-local 'lterm-prompt-replacement)
+
+(defvar *lterm-output-remainder* "")
+(make-variable-buffer-local '*lterm-output-remainder*)
+(defun lterm-process-output-handler (process string)
   "Function to handle the output of lterm processes."
-  (when lterm-convert-crlf
-    (setq line (replace-regexp-in-string "\r\n" "\n" line)))
-  (when (equal (substring line -1) "\n")
-    (setq line (substring line 0 -1)))
-  (setq line (xterm-color-filter line))
-  (setq line (lterm--filter lterm-output-filters line))
-  (dolist (filter lterm-output-filters)
-    (setq line (funcall filter line)))
   (with-current-buffer (process-buffer process)
-    (lui-insert line)))
+    (when lterm-convert-crlf
+      (setq string (replace-regexp-in-string "\r\n" "\n" string)))
+    (let ((lines (split-string (concat *lterm-output-remainder* string) "\n")))
+      (if (null (cdr lines))
+          (setq *lterm-output-remainder* (car lines))
+        (let ((second-last (last lines 2)))
+          (setq *lterm-output-remainder* (cadr second-last))
+          (setcdr second-last nil))
+        (dolist (line lines)
+          (lterm-process-output-line-handler (xterm-color-filter line)))))
+    (let ((string (xterm-color-filter *lterm-output-remainder*)))
+      (when (string-match lterm-prompt-regex string)
+        (setq *lterm-output-remainder* "")
+        (lui-set-prompt
+         (cond
+          ((stringp lterm-prompt-replacement)
+           (replace-match lterm-prompt-replacement nil nil string))
+          ((functionp lterm-prompt-replacement)
+           (funcall lterm-prompt-replacement))
+          (t (error "invalid value for `lterm-prompt-replacement'"))))))))
+
+(defun lterm-process-output-line-handler (line)
+  "Function to handle a single line of process output."
+  (let ((output (lterm--filter lterm-output-filters line)))
+    (when output
+      (lui-insert line))))
 
 (provide 'lterm)
 ;;; lterm.el ends here
