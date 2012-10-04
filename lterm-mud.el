@@ -32,7 +32,7 @@
 (define-derived-mode lterm-mud-mode lterm-mode "Linewise-MUD"
   "Cheap MUD client that wraps telnet using `lterm-mode'."
   :group 'lterm-mud
-  (setq lterm-prompt-regex "^LTERM_MUD_PROMPT_START \\(.*\\) LTERM_MUD_PROMPT_END.*")
+  (setq lterm-prompt-regex "^%lterm-mud-prompt% \\(.*\\) %lterm-mud-prompt%")
   (setq lterm-prompt-replacement "\\1"))
 
 (defun lterm-mud (host port)

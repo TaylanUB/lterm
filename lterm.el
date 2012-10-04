@@ -152,7 +152,9 @@ The buffer is in `lterm-mode'."
     (process-send-string lterm-process (concat string "\n"))))
 
 (defvar lterm-prompt-regex "^\\$ "
-  "Regular expression used to detect a prompt.")
+  "Regular expression used to detect a prompt.
+This should probably start with ^.  The remainder of the matching
+line will be treated as usual process output.")
 (make-variable-buffer-local 'lterm-prompt-regex)
 
 (defvar lterm-prompt-replacement "\\&"
@@ -168,10 +170,14 @@ prompt.")
   (lui-set-prompt
    (cond
     ((stringp lterm-prompt-replacement)
-     (replace-match lterm-prompt-replacement nil nil string))
+     (let ((match (substring string (match-beginning 0) (match-end 0))))
+      (replace-match lterm-prompt-replacement nil nil match)))
     ((functionp lterm-prompt-replacement)
      (funcall lterm-prompt-replacement))
-    (t (error "invalid value for `lterm-prompt-replacement'")))))
+    (t (error "invalid value for `lterm-prompt-replacement'"))))
+  (let ((remainder (replace-match "" nil nil string)))
+    (when (< 0 (length remainder))
+      (lterm-process-output-line-handler remainder))))
 
 (defvar *lterm-output-remainder* "")
 (make-variable-buffer-local '*lterm-output-remainder*)
