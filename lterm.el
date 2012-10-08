@@ -110,15 +110,26 @@ to be filtered through a processor to allow macros etc.."
   (set (make-local-variable 'lui-fill-type) nil)
   (goto-char (point-max)))
 
+(defmacro with-lterm-conversions (&rest body)
+  "Run BODY with the correct coding system and no EOL conversion."
+  `(let ((inhibit-eol-conversion t)
+         (coding-system-for-read 'binary))
+     ,@body))
+
 (defun lterm-start-process (name program &rest program-args)
   "This should be called just before `lterm-mode'.
-Similarly, libraries definind derived modes of lterm should use
+Similarly, libraries defining derived modes of lterm should use
 this in their \"main entry\" function, a la `lterm', before
 calling their mode function."
-  (let ((process-environment (cons "TERM=xterm-256color" process-environment))
-        (inhibit-eol-conversion t)
-        (coding-system-for-read 'binary))
-    (apply 'start-process name (current-buffer) program program-args)))
+  (with-lterm-conversions
+   (let ((process-environment (cons "TERM=xterm-256color" process-environment)))
+     (apply 'start-process name (current-buffer) program program-args))))
+
+(defun lterm-start-network-connection (name host port)
+  "Used exactly like `lterm-start-process', but makes a network
+connection instead."
+  (with-lterm-conversions
+   (open-network-stream name (current-buffer) host port)))
 
 (defun lterm (program)
   "Start a line-wise terminal-emulator in a new buffer.
@@ -130,6 +141,15 @@ The buffer is in `lterm-mode'."
                                                "/bin/sh"))))
   (switch-to-buffer (generate-new-buffer "*lterm*"))
   (lterm-start-process "lterm" program)
+  (lterm-mode))
+
+(defun lnet (host port)
+  "Interact with a line-wise network connection in a new buffer.
+The buffer is in `lterm-mode'."
+  (interactive "sHost: \nnPort: ")
+  (switch-to-buffer (generate-new-buffer
+                     (format "*lnet-%s:%d*" host port)))
+  (lterm-start-network-connection "lnet" host port)
   (lterm-mode))
 
 
