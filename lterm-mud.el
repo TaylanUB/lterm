@@ -20,14 +20,12 @@
 
 ;;; Commentary:
 
-;; 
+;;
 
 ;;; Code:
 
 (require 'lterm)
-
-
-;;; Main
+(require 'format-spec)
 
 (define-derived-mode lterm-mud-mode lterm-mode "Linewise-MUD"
   "Cheap MUD client that wraps telnet using `lterm-mode'."
@@ -35,10 +33,17 @@
   (setq lterm-prompt-regex "^%lterm-mud-prompt% \\(.*\\) %lterm-mud-prompt%")
   (setq lterm-prompt-replacement "\\1"))
 
+(defvar lterm-mud-buffer-name-format "%h"
+  "Format for the name of `lterm-mud' buffers.
+%h for host and %p for port are allowed.")
+
 (defun lterm-mud (host port)
   "Connect to host:port and start `lterm-mud-mode'."
   (interactive "sHost: \nsPort: ")
-  (switch-to-buffer (generate-new-buffer "*lterm-mud*"))
+  (switch-to-buffer (generate-new-buffer
+                     (format-spec lterm-mud-buffer-name-format
+                                  `((?h . ,host)
+                                    (?p . ,port)))))
   (lterm-start-process "lterm-mud" "telnet" host port)
   ;; Switch telnet(1) to character mode:
   (process-send-string lterm-process "mode character\n")
