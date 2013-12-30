@@ -40,8 +40,9 @@
   (interactive "sHost: \nsPort: ")
   (switch-to-buffer (generate-new-buffer "*lterm-mud*"))
   (lterm-start-process "lterm-mud" "telnet" host port)
+  ;; Switch telnet(1) to character mode:
+  (process-send-string lterm-process "mode character\n")
   (lterm-mud-mode))
-
 
 (provide 'lterm-mud)
 ;;; lterm-mud.el ends here
