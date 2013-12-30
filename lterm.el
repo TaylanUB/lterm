@@ -80,15 +80,17 @@ process."
   :group 'lterm :type 'boolean)
 
 (defcustom lterm-input-filters nil
-  "List of unary functions through which user-input is piped, in
-order, before being sent to the process.
-If any of these return nil, lterm aborts the input."
+  "List of functions through which user-input is piped, in order,
+before being sent to the process.  If any function returns nil,
+input is aborted.  A function may also return t for filtering to
+continue with no change to the string."
   :group 'lterm :type 'hook)
 
 (defcustom lterm-output-filters nil
-  "List of unary functions through which the process's output is piped,
-in order, before it's inserted into the buffer.
-If any of these return nil, lterm aborts inserting the output."
+  "List of functions through which process-output is piped,
+in order, before being inserted into the buffer.  If any function
+returns nil, output is aborted.  A function may also return t for
+filtering to continue with no change to the string."
   :group 'lterm :type 'hook)
 
 
@@ -156,10 +158,14 @@ The buffer is in `lterm-mode'."
 ;;; Input/output handling
 
 (defmacro lterm--filter (filters string)
-  (let ((filter (make-symbol "filter")))
+  (let ((filter (make-symbol "filter"))
+        (result (make-symbol "result")))
     `(dolist (,filter ,filters ,string)
-       (unless (setq ,string (funcall ,filter ,string))
-         (return nil)))))
+       (let ((,result (funcall ,filter ,string)))
+         (if (stringp ,result)
+             (setq ,string ,result)
+           (unless ,result
+             (return nil)))))))
 
 (defun lterm-user-input-handler (string)
   "Function to handle the user-input in lterm buffers."
