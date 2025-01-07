@@ -43,7 +43,7 @@
 ;;; Code:
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl-macs))
 
 (require 'lui)
 
@@ -160,12 +160,12 @@ The buffer is in `lterm-mode'."
 (defmacro lterm--filter (filters string)
   (let ((filter (make-symbol "filter"))
         (result (make-symbol "result")))
-    `(dolist (,filter ,filters ,string)
+    `(cl-dolist (,filter ,filters ,string)
        (let ((,result (funcall ,filter ,string)))
          (if (stringp ,result)
              (setq ,string ,result)
            (unless ,result
-             (return nil)))))))
+             (cl-return)))))))
 
 (defun lterm-user-input-handler (string)
   "Function to handle the user-input in lterm buffers."
